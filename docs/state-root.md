@@ -19,9 +19,10 @@ as unset.
 | 1 | `GSTACK_STATE_ROOT` | `gstack-paths`' own output. It is also honored as input, so re-reading it in the same environment returns the same root. Do not set it by hand. |
 | 2 | `GSTACK_HOME` | **The one variable to set** when you want your state somewhere other than `~/.gstack`. |
 | 3 | `GSTACK_STATE_DIR` | Legacy alias, honored for compatibility. |
-| 4 | `CLAUDE_PLUGIN_DATA` | Only when `CLAUDE_PLUGIN_ROOT` contains `gstack` (any case), so another plugin's data directory never captures gstack state. |
-| 5 | `$HOME/.gstack` | The default. On Windows shells, `USERPROFILE` stands in when `HOME` is unset. |
-| 6 | `.gstack` | Last resort when there is no home directory at all (some containers). |
+| 4 | Pack marker | `<install root>/.gstack-pack-state-root`, written by pack mode ([pack-mode.md](pack-mode.md)). Its first line, when it is an absolute path. Absent in a normal install. |
+| 5 | `CLAUDE_PLUGIN_DATA` | Only when `CLAUDE_PLUGIN_ROOT` contains `gstack` (any case), so another plugin's data directory never captures gstack state. |
+| 6 | `$HOME/.gstack` | The default. On Windows shells, `USERPROFILE` stands in when `HOME` is unset. |
+| 7 | `.gstack` | Last resort when there is no home directory at all (some containers). |
 
 ## See which root is in use
 
