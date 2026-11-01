@@ -12,6 +12,9 @@
  *   4. Print result JSON to stdout
  */
 
+// First import: exports a pack render's markers as env before any module
+// resolves the state root at load time (lib/pack-env.ts).
+import '../../lib/pack-env-apply';
 import { COMMANDS, OUTPUT_CONTRACT } from "./commands";
 import { generate } from "./generate";
 import { checkCommand } from "./check";

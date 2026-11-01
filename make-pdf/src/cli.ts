@@ -11,6 +11,9 @@
  *   (Aside not running AND gstack's own browser not built).
  */
 
+// First import: exports a pack render's markers as env before any module
+// resolves the state root at load time (lib/pack-env.ts).
+import '../../lib/pack-env-apply';
 import { COMMANDS } from "./commands";
 import { ExitCode, BrowserUnavailableError } from "./types";
 import type { GenerateOptions, PreviewOptions } from "./types";

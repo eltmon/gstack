@@ -9,6 +9,7 @@
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import { packRootFor } from '../../lib/pack-env';
 
 let cachedSlug: string | null = null;
 
@@ -20,7 +21,9 @@ export function getCurrentProjectSlug(): string {
     return explicit;
   }
   try {
-    const slugBin = path.join(os.homedir(), '.claude/skills/gstack/bin/gstack-slug');
+    // A pack render runs its own copy; a normal install lives under ~/.claude.
+    const root = packRootFor();
+    const slugBin = root ? path.join(root, 'bin/gstack-slug') : path.join(os.homedir(), '.claude/skills/gstack/bin/gstack-slug');
     const out = execSync(slugBin, { encoding: 'utf8', timeout: 2000, windowsHide: true }).trim();
     const m = out.match(/SLUG="?([^"\n]+)"?/);
     cachedSlug = m ? m[1]! : (out || 'unknown');
