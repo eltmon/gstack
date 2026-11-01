@@ -59,6 +59,12 @@ Pack mode (docs/pack-mode.md), for hosts that mount skills themselves:
                     keep all state in --pack-state-root, then exit. Both must
                     be plain absolute paths. Writes nothing else: no bun
                     install, no build, no harness dirs or settings, no network.
+  --pack-browser <render> --pack-browser-cache <dir>
+                    Add the browse, design and make-pdf runtime to an
+                    existing pack render: locked production dependencies, the
+                    compiled binaries, and Playwright Chromium in
+                    --pack-browser-cache. Downloads npm packages and Chromium;
+                    writes only the two directories.
 
 Model selection:
   --model <id>      Codex model profile override. Otherwise reads Codex config.
@@ -198,7 +204,7 @@ _setup_unknown_option() {
   for flag in --host --model --claude-model --global --local --prefix --no-prefix --team --no-team \
     --plan-tune-hooks --no-plan-tune-hooks --timeline-stop-hook --no-timeline-stop-hook \
     --refresh-registered --status --no-browser --no-harness-auto --quiet --help \
-    --pack-root --pack-state-root; do
+    --pack-root --pack-state-root --pack-browser --pack-browser-cache; do
     d="$(awk -v a="${bad%%=*}" -v b="$flag" 'BEGIN {
       n = length(a); m = length(b)
       for (i = 0; i <= n; i++) d[i, 0] = i
@@ -246,6 +252,10 @@ while [ $# -gt 0 ]; do
     --pack-root=*) PACK_ROOT="${1#--pack-root=}"; shift ;;
     --pack-state-root) [ -z "${2:-}" ] && echo "Missing value for --pack-state-root" >&2 && exit 2; PACK_STATE_ROOT="$2"; shift 2 ;;
     --pack-state-root=*) PACK_STATE_ROOT="${1#--pack-state-root=}"; shift ;;
+    --pack-browser) [ -z "${2:-}" ] && echo "Missing value for --pack-browser" >&2 && exit 2; PACK_BROWSER="$2"; shift 2 ;;
+    --pack-browser=*) PACK_BROWSER="${1#--pack-browser=}"; shift ;;
+    --pack-browser-cache) [ -z "${2:-}" ] && echo "Missing value for --pack-browser-cache" >&2 && exit 2; PACK_BROWSER_CACHE="$2"; shift 2 ;;
+    --pack-browser-cache=*) PACK_BROWSER_CACHE="${1#--pack-browser-cache=}"; shift ;;
     *) _setup_unknown_option "$@"; exit 2 ;;
   esac
 done
@@ -259,6 +269,15 @@ if [ -z "${PACK_ROOT:-}${PACK_STATE_ROOT:-}${PACK_BROWSER:-}${PACK_BROWSER_CACHE
     echo "setup: this is a host-managed pack render ($_pack_dir); the host installs it" >&2
     exit 2
   fi
+fi
+
+if [ -n "${PACK_ROOT:-}${PACK_STATE_ROOT:-}" ] && [ -n "${PACK_BROWSER:-}${PACK_BROWSER_CACHE:-}" ]; then
+  echo "setup: run --pack-root and --pack-browser separately" >&2
+  exit 2
+fi
+# The pack browser step builds into an existing render and exits.
+if [ -n "${PACK_BROWSER:-}${PACK_BROWSER_CACHE:-}" ]; then
+  exec bash "$(cd "$(dirname "$0")" && pwd -P)/scripts/pack-browser.sh" "${PACK_BROWSER:-}" "${PACK_BROWSER_CACHE:-}"
 fi
 
 # Pack mode renders into the caller's roots and exits before any install step.
