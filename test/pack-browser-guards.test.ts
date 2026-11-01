@@ -2,7 +2,8 @@
  * Pack renders never install themselves (docs/pack-mode.md). In a
  * host-managed render (.gstack-pack.json next to bin/), gstack-browser-ensure
  * never runs `bun install` or `playwright install`: it reads the Chromium
- * cache from .gstack-pack-browsers-path and fails with the host's fix line.
+ * cache from .gstack-pack-browsers-path (and keeps XDG_CACHE_HOME beside it)
+ * and fails with the host's fix line.
  * A plain ./setup inside a render exits 2 before any write. Outside a render
  * both behave as before.
  *
@@ -51,7 +52,9 @@ function ensureFixture(name: string, opts: { pack: boolean; playwright?: boolean
     fs.writeFileSync(path.join(root, 'node_modules/playwright/package.json'), '{"name":"playwright"}\n');
   }
   // Every call is logged with the browsers path it saw; nothing succeeds.
-  for (const tool of ['bun', 'node']) stub(stubs, tool, `echo "${tool} $* PLAYWRIGHT_BROWSERS_PATH=\${PLAYWRIGHT_BROWSERS_PATH:-}" >> "${calls}"; exit 1`);
+  for (const tool of ['bun', 'node']) {
+    stub(stubs, tool, `echo "${tool} $* PLAYWRIGHT_BROWSERS_PATH=\${PLAYWRIGHT_BROWSERS_PATH:-} XDG_CACHE_HOME=\${XDG_CACHE_HOME:-}" >> "${calls}"; exit 1`);
+  }
   const home = path.join(base, 'home');
   fs.mkdirSync(home, { recursive: true });
   const run = (args: string[] = []) => spawnSync(BASH, [path.join(root, 'bin/gstack-browser-ensure'), ...args], {
@@ -85,6 +88,8 @@ describe('gstack-browser-ensure in a pack render', () => {
     expect(r.stderr).toContain(FIX);
     expect(f.log()).toContain(`node -e`);
     expect(f.log()).toContain(`PLAYWRIGHT_BROWSERS_PATH=${browsers}`);
+    // Chromium's fontconfig and GPU caches stay beside the browsers, out of $HOME/.cache.
+    expect(f.log()).toContain(`XDG_CACHE_HOME=${path.join(tmp, 'cache', 'xdg-cache')}`);
     expect(f.log()).not.toContain('install');
   });
 

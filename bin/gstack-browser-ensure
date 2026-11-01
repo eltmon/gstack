@@ -34,10 +34,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd -P)" || { echo "gstack-browser-ensure: ca
 PACK=0
 if [ -f "$ROOT/.gstack-pack.json" ]; then
   PACK=1
-  if [ -z "${PLAYWRIGHT_BROWSERS_PATH:-}" ] && [ -f "$ROOT/.gstack-pack-browsers-path" ]; then
-    _browsers=$(sed -n '1{s/^[[:space:]]*//;s/[[:space:]]*$//;p;}' "$ROOT/.gstack-pack-browsers-path")
-    case "$_browsers" in /*) export PLAYWRIGHT_BROWSERS_PATH="$_browsers" ;; esac
-  fi
+  _browsers=""
+  [ -f "$ROOT/.gstack-pack-browsers-path" ] && _browsers=$(sed -n '1{s/^[[:space:]]*//;s/[[:space:]]*$//;p;}' "$ROOT/.gstack-pack-browsers-path")
+  case "$_browsers" in
+    /*)
+      [ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ] || export PLAYWRIGHT_BROWSERS_PATH="$_browsers"
+      # Chromium's fontconfig and GPU caches go beside the browsers, not $HOME/.cache.
+      [ -n "${XDG_CACHE_HOME:-}" ] || export XDG_CACHE_HOME="$(dirname "$_browsers")/xdg-cache"
+      ;;
+  esac
   [ -n "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:-}" ] || export BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
 fi
 DOCS="https://github.com/garrytan/gstack/blob/main/docs/troubleshooting.md#browser-ensure-failed"

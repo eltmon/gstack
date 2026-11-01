@@ -56,14 +56,16 @@ describe('applyPackEnv', () => {
     expect(env).toEqual({
       GSTACK_STATE_ROOT: s,
       PLAYWRIGHT_BROWSERS_PATH: browsers,
+      XDG_CACHE_HOME: path.join(tmp, 'browser', 'xdg-cache'),
       BUN_RUNTIME_TRANSPILER_CACHE_PATH: '0',
     });
   });
 
   test('explicit env values win', () => {
-    const env: Record<string, string | undefined> = { GSTACK_STATE_ROOT: '/preset', PLAYWRIGHT_BROWSERS_PATH: '/pw', BUN_RUNTIME_TRANSPILER_CACHE_PATH: '/cache' };
+    const preset = { GSTACK_STATE_ROOT: '/preset', PLAYWRIGHT_BROWSERS_PATH: '/pw', XDG_CACHE_HOME: '/xdg', BUN_RUNTIME_TRANSPILER_CACHE_PATH: '/cache' };
+    const env: Record<string, string | undefined> = { ...preset };
     applyPackEnv(env, r);
-    expect(env).toEqual({ GSTACK_STATE_ROOT: '/preset', PLAYWRIGHT_BROWSERS_PATH: '/pw', BUN_RUNTIME_TRANSPILER_CACHE_PATH: '/cache' });
+    expect(env).toEqual(preset);
     const home: Record<string, string | undefined> = { GSTACK_HOME: '/gh' };
     applyPackEnv(home, r);
     expect(home.GSTACK_STATE_ROOT).toBeUndefined();
@@ -84,6 +86,7 @@ describe('applyPackEnv', () => {
     applyPackEnv(env, bare);
     expect(env.GSTACK_STATE_ROOT).toBe(s);
     expect(env.PLAYWRIGHT_BROWSERS_PATH).toBeUndefined();
+    expect(env.XDG_CACHE_HOME).toBeUndefined();
   });
 });
 
@@ -102,7 +105,7 @@ describe('compiled binary', () => {
       // Bun hands a child its startup env unless env is passed, so the daemons
       // (browse/src/cli.ts, design/src/daemon-client.ts) spawn with
       // { ...process.env }; the probe does the same.
-      `const child = spawnSync('sh', ['-c', 'printf "%s|%s" "$PLAYWRIGHT_BROWSERS_PATH" "$BUN_RUNTIME_TRANSPILER_CACHE_PATH"'], { encoding: 'utf-8', env: { ...process.env } });`,
+      `const child = spawnSync('sh', ['-c', 'printf "%s|%s|%s" "$PLAYWRIGHT_BROWSERS_PATH" "$XDG_CACHE_HOME" "$BUN_RUNTIME_TRANSPILER_CACHE_PATH"'], { encoding: 'utf-8', env: { ...process.env } });`,
       `console.log(STATE);`,
       `console.log(child.stdout);`,
       '',
@@ -119,7 +122,7 @@ describe('compiled binary', () => {
 
     const run = spawnSync(probe, [], { cwd: tmp, env: { PATH: '/usr/bin:/bin', HOME: runHome }, encoding: 'utf-8', timeout: 30_000 });
     expect(run.status).toBe(0);
-    expect(run.stdout.split('\n').slice(0, 2)).toEqual([s, `${browsers}|0`]);
+    expect(run.stdout.split('\n').slice(0, 2)).toEqual([s, `${browsers}|${path.join(tmp, 'browser', 'xdg-cache')}|0`]);
     expect(tree(runHome)).toEqual({});
 
     const preset = spawnSync(probe, [], { cwd: tmp, env: { PATH: '/usr/bin:/bin', HOME: runHome, GSTACK_STATE_ROOT: '/preset' }, encoding: 'utf-8', timeout: 30_000 });

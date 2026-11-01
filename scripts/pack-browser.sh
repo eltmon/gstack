@@ -41,10 +41,12 @@ cleanup() {
   rm -f "$R/.gstack-pack-browser.json" "$R/.gstack-pack-browsers-path"
 }
 rm -f "$R/.gstack-pack-browser.json" "$R/.gstack-pack-browsers-path"
-mkdir -p "$C/bun-cache" "$C/playwright"
+mkdir -p "$C/bun-cache" "$C/playwright" "$C/xdg-cache"
 trap 'rc=$?; [ "$rc" -eq 0 ] || cleanup; exit "$rc"' EXIT
 
-export BUN_INSTALL_CACHE_DIR="$C/bun-cache" BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 PLAYWRIGHT_BROWSERS_PATH="$C/playwright"
+# Chromium's launch writes fontconfig and GPU caches under $XDG_CACHE_HOME
+# (default $HOME/.cache); keep them in C so the step writes only R and C.
+export BUN_INSTALL_CACHE_DIR="$C/bun-cache" BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 PLAYWRIGHT_BROWSERS_PATH="$C/playwright" XDG_CACHE_HOME="$C/xdg-cache"
 cd "$R"
 
 # 1. Production dependencies, exactly as locked (no --lockfile-only fallback).

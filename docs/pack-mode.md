@@ -89,8 +89,9 @@ gstack's security floor (`bin/gstack-bun-version.sh`) exits 1. These checks
 run before any write. `--pack-root` and `--pack-browser` cannot be combined.
 
 `scripts/pack-browser.sh` runs, with `cwd` = `R`,
-`BUN_INSTALL_CACHE_DIR=C/bun-cache`, `BUN_RUNTIME_TRANSPILER_CACHE_PATH=0` and
-`PLAYWRIGHT_BROWSERS_PATH=C/playwright`:
+`BUN_INSTALL_CACHE_DIR=C/bun-cache`, `BUN_RUNTIME_TRANSPILER_CACHE_PATH=0`,
+`PLAYWRIGHT_BROWSERS_PATH=C/playwright` and `XDG_CACHE_HOME=C/xdg-cache` (Chromium's
+launch writes fontconfig and GPU caches there instead of `$HOME/.cache`):
 
 1. `bun install --production --frozen-lockfile` (npm registry packages from
    `bun.lock` into `R/node_modules`).
@@ -124,10 +125,12 @@ A host sets no gstack environment at launch. `lib/pack-env.ts`, the first
 import of the `browse`, `design` and `make-pdf` CLIs, finds the render from
 the running code (`import.meta.dir`, or the compiled binary's own path) and
 exports `GSTACK_STATE_ROOT` (from `.gstack-pack-state-root`),
-`PLAYWRIGHT_BROWSERS_PATH` (from `.gstack-pack-browsers-path`) and
+`PLAYWRIGHT_BROWSERS_PATH` (from `.gstack-pack-browsers-path`),
+`XDG_CACHE_HOME` (the `xdg-cache` dir beside that browsers path) and
 `BUN_RUNTIME_TRANSPILER_CACHE_PATH=0` when they are unset. The browse and
-design daemons inherit them. `bin/gstack-browser-ensure` reads the same
-browsers-path marker.
+design daemons inherit them, so Chromium's fontconfig and GPU caches stay in
+the pack at runtime too. `bin/gstack-browser-ensure` reads the same
+browsers-path marker and sets the same two variables.
 
 ### Renders never install themselves
 

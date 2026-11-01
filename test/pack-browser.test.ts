@@ -41,7 +41,7 @@ beforeAll(() => {
   stub(netStubs, 'wget', 'exit 1');
   // One log line per call: argv, then the env and cwd it ran with.
   stub(stubs, 'bun', [
-    'printf "%s\\tCACHE=%s\\tPW=%s\\tTC=%s\\tPWD=%s\\n" "$*" "${BUN_INSTALL_CACHE_DIR:-}" "${PLAYWRIGHT_BROWSERS_PATH:-}" "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:-}" "$PWD" >> "$STUB_LOG"',
+    'printf "%s\\tCACHE=%s\\tPW=%s\\tTC=%s\\tXDG=%s\\tPWD=%s\\n" "$*" "${BUN_INSTALL_CACHE_DIR:-}" "${PLAYWRIGHT_BROWSERS_PATH:-}" "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:-}" "${XDG_CACHE_HOME:-}" "$PWD" >> "$STUB_LOG"',
     'case "$*" in *"${STUB_FAIL_ON:-<none>}"*) exit 3 ;; esac',
     'case "$1" in',
     '  --version) echo "${STUB_BUN_VERSION:-1.4.2}" ;;',
@@ -107,9 +107,12 @@ describe('setup --pack-browser', () => {
     for (const line of calls) {
       expect(field(line, 'CACHE')).toBe(path.join(f.C, 'bun-cache'));
       expect(field(line, 'TC')).toBe('0');
+      // Chromium's fontconfig and GPU caches go to C, never $HOME/.cache.
+      expect(field(line, 'XDG')).toBe(path.join(f.C, 'xdg-cache'));
       expect(field(line, 'PWD')).toBe(f.R);
     }
     expect(field(calls.at(-1)!, 'PW')).toBe(path.join(f.C, 'playwright'));
+    expect(fs.statSync(path.join(f.C, 'xdg-cache')).isDirectory()).toBe(true);
 
     const version = fs.readFileSync(path.join(f.R, 'VERSION'), 'utf-8').trim();
     for (const v of ['browse/dist/.version', 'design/dist/.version', 'make-pdf/dist/.version']) {
