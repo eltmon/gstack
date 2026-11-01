@@ -38,6 +38,15 @@ find "$R" -type l -delete
 (cd "$R" && BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 bun run "$R/scripts/gen-skill-docs.ts" --host claude --out-dir "$R" --install-root "$R" --link-root "$R")
 grep -qF "$R/bin/gstack-skill-start --skill" "$R/test-audit/SKILL.md" \
   || fail 1 "render did not rewrite the install root"
+# 2b. Literal state paths in skill prose name S: ${HOME}/.gstack/,
+# $HOME/.gstack/ and ~/.gstack/ (the ${HOME} form first). S matches
+# PATH_PATTERN, so it needs no escaping in the replacement.
+for f in "$R"/*/SKILL.md "$R"/*/sections/*.md; do
+  [ -f "$f" ] || continue
+  grep -qE '(~|\$HOME|\$\{HOME\})/\.gstack/' "$f" || continue
+  sed -e 's|\${HOME}/\.gstack/|'"$S"'/|g' -e 's|\$HOME/\.gstack/|'"$S"'/|g' -e 's|~/\.gstack/|'"$S"'/|g' "$f" > "$f.pack-tmp"
+  mv "$f.pack-tmp" "$f"
+done
 
 # 3. The state-root marker the resolver reads (bin/gstack-state-root.sh).
 printf '%s\n' "$S" > "$R/.gstack-pack-state-root"

@@ -1,7 +1,8 @@
 /**
  * Pack mode (docs/pack-mode.md): `setup --pack-root R --pack-state-root S`
- * renders every skill and its runtime into R, keeps all state in S, and
- * writes nothing else — no $HOME/.gstack, no $HOME/.claude, no network.
+ * renders every skill and its runtime into R, keeps all state in S (literal
+ * ~/.gstack/ paths in skill docs name S), and writes nothing else — no
+ * $HOME/.gstack, no $HOME/.claude, no network.
  *
  * Runs real bun under an empty temp HOME, with bun's defaults (no BUN_INSTALL
  * or XDG_CACHE_HOME redirect), and asserts HOME is still empty afterwards, so
@@ -23,6 +24,7 @@ const BASH = Bun.which('bash') ?? '/bin/bash';
 const REAL_GIT = Bun.which('git') ?? '/usr/bin/git';
 const BUN_DIR = path.dirname(Bun.which('bun') ?? process.execPath);
 const OLD_TOKENS = ['~/.claude/skills/gstack', '$HOME/.claude/skills/gstack', '${HOME}/.claude/skills/gstack'];
+const STATE_TOKENS = ['~/.gstack/', '$HOME/.gstack/', '${HOME}/.gstack/'];
 
 let tmp: string, home: string, work: string, netLog: string, env: Record<string, string>;
 
@@ -100,6 +102,9 @@ describe('setup pack mode', () => {
     const stale = renderedDocs(R).filter((f) => OLD_TOKENS.some((t) => fs.readFileSync(f, 'utf-8').includes(t)));
     expect(stale.map((f) => path.relative(R, f))).toEqual([]);
     expect(fs.readFileSync(path.join(R, 'test-audit', 'SKILL.md'), 'utf-8')).toContain(`${R}/bin/gstack-skill-start --skill "test-audit"`);
+    const unrooted = renderedDocs(R).filter((f) => STATE_TOKENS.some((t) => fs.readFileSync(f, 'utf-8').includes(t)));
+    expect(unrooted.map((f) => path.relative(R, f))).toEqual([]);
+    expect(fs.readFileSync(path.join(R, 'design-shotgun', 'SKILL.md'), 'utf-8')).toContain(`${S}/projects/`);
     const links = spawnSync('find', [R, '-type', 'l'], { encoding: 'utf-8' }).stdout.trim();
     expect(links).toBe('');
 

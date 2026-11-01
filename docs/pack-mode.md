@@ -37,7 +37,9 @@ In order:
    `bun run R/scripts/gen-skill-docs.ts --host claude --out-dir R --install-root R --link-root R`
    (run with `cwd` = `R`, so the source tree is only read). Every `SKILL.md` and
    `sections/*.md` names `R` where it named `~/.claude/skills/gstack`,
-   `$HOME/.claude/skills/gstack` or `${HOME}/.claude/skills/gstack`.
+   `$HOME/.claude/skills/gstack` or `${HOME}/.claude/skills/gstack`. Then every
+   `~/.gstack/`, `$HOME/.gstack/` or `${HOME}/.gstack/` in those files is
+   rewritten to `S/`, so state paths the skill prose names land in `S`.
 3. `R/.gstack-pack-state-root`: one line holding `S`. The state-root resolver
    reads it (see [state-root.md](state-root.md)), so every `R/bin/...` script
    keeps its state in `S` with no environment variable, from any harness, and
