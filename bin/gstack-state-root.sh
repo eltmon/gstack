@@ -4,9 +4,9 @@
 # Sourced, never executed: bin/gstack-paths and the careful/freeze hooks source
 # it; other executables run `eval "$(<their dir>/gstack-paths)"` plus the
 # `: "${GSTACK_STATE_ROOT:?...}"` guard. Chain: GSTACK_STATE_ROOT → GSTACK_HOME →
-# GSTACK_STATE_DIR → CLAUDE_PLUGIN_DATA (only when CLAUDE_PLUGIN_ROOT contains
-# "gstack") → $HOME/.gstack → .gstack. Bash builtins only (bash 3.2, no
-# subprocess): hooks run it on every tool call. Enforced by
+# GSTACK_STATE_DIR → pack marker (docs/pack-mode.md) → CLAUDE_PLUGIN_DATA (only
+# when CLAUDE_PLUGIN_ROOT contains "gstack") → $HOME/.gstack → .gstack. Bash
+# builtins only (bash 3.2, no subprocess): hooks run it on every tool call. Enforced by
 # test/state-root-ratchet.test.ts. Generalizes careful/bin/hook-extract.sh's
 # former gstack_hook_state_root. Docs: docs/state-root.md.
 
@@ -20,8 +20,33 @@ _gstack_user_home() {
   fi
 }
 
+# Pack mode: setup --pack-root writes <pack root>/.gstack-pack-state-root, one
+# line naming the state root, next to this file's bin/. Resolved when sourced,
+# so a later cd in the caller does not move it.
+_gstack_sr_pack_marker="${BASH_SOURCE[0]:-}"
+case "$_gstack_sr_pack_marker" in
+  */*|*\\*) _gstack_sr_pack_marker="${_gstack_sr_pack_marker%[/\\]*}/../.gstack-pack-state-root" ;;
+  *) _gstack_sr_pack_marker="" ;;
+esac
+case "$_gstack_sr_pack_marker" in
+  ''|/*) ;;
+  *) _gstack_sr_pack_marker="$PWD/$_gstack_sr_pack_marker" ;;
+esac
+
+# _gstack_pack_marker_root — sets _gstack_sr_pack_root to the marker's first
+# line, trimmed, when the marker is a regular file naming an absolute path;
+# "" otherwise.
+_gstack_pack_marker_root() {
+  _gstack_sr_pack_root=""
+  [ -n "$_gstack_sr_pack_marker" ] && [ -f "$_gstack_sr_pack_marker" ] || return 0
+  IFS= read -r _gstack_sr_pack_root < "$_gstack_sr_pack_marker" || true
+  _gstack_sr_pack_root="${_gstack_sr_pack_root#"${_gstack_sr_pack_root%%[![:space:]]*}"}"
+  _gstack_sr_pack_root="${_gstack_sr_pack_root%"${_gstack_sr_pack_root##*[![:space:]]}"}"
+  case "$_gstack_sr_pack_root" in /*) ;; *) _gstack_sr_pack_root="" ;; esac
+}
+
 # gstack_state_root_select — sets _gstack_sr_root and _gstack_sr_var (the
-# variable that selected it, or "default") without printing.
+# variable that selected it, "pack_marker", or "default") without printing.
 gstack_state_root_select() {
   _gstack_user_home
   if [ -n "${GSTACK_STATE_ROOT:-}" ]; then
@@ -30,6 +55,8 @@ gstack_state_root_select() {
     _gstack_sr_root="$GSTACK_HOME"; _gstack_sr_var="GSTACK_HOME"
   elif [ -n "${GSTACK_STATE_DIR:-}" ]; then
     _gstack_sr_root="$GSTACK_STATE_DIR"; _gstack_sr_var="GSTACK_STATE_DIR"
+  elif _gstack_pack_marker_root && [ -n "$_gstack_sr_pack_root" ]; then
+    _gstack_sr_root="$_gstack_sr_pack_root"; _gstack_sr_var="pack_marker"
   else
     _gstack_sr_root=""
     if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then

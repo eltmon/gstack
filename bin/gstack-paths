@@ -13,12 +13,14 @@
 #
 # Chains:
 #   GSTACK_STATE_ROOT: GSTACK_STATE_ROOT -> GSTACK_HOME -> GSTACK_STATE_DIR
+#                      -> pack marker (<pack root>/.gstack-pack-state-root, docs/pack-mode.md)
 #                      -> CLAUDE_PLUGIN_DATA (only when CLAUDE_PLUGIN_ROOT=*gstack*)
 #                      -> $HOME/.gstack -> .gstack
 #                      (one rule, owned by bin/gstack-state-root.sh; set GSTACK_HOME
 #                      to relocate state; GSTACK_STATE_ROOT is this script's output,
 #                      also honored as input; GSTACK_STATE_DIR is a legacy alias)
-#   PLAN_ROOT:         GSTACK_PLAN_DIR -> CLAUDE_PLANS_DIR -> $HOME/.claude/plans -> .claude/plans
+#   PLAN_ROOT:         GSTACK_PLAN_DIR -> <state root>/plans (pack marker only)
+#                      -> CLAUDE_PLANS_DIR -> $HOME/.claude/plans -> .claude/plans
 #   TMP_ROOT:          TMPDIR -> TMP -> .gstack/tmp (and mkdir -p, best-effort)
 # Docs: https://github.com/garrytan/gstack/blob/main/docs/state-root.md
 #
@@ -74,6 +76,9 @@ if [ "${1:-}" = "--explain" ]; then
       printf '  %-20s %s  ignored\n' "$_v" "$_val"
     fi
   done
+  if [ "$_gstack_sr_var" = pack_marker ]; then
+    printf '  %-20s %s  selected (from %s)\n' "pack marker" "$_state_root" "$_gstack_sr_pack_marker"
+  fi
   _gstack_user_home
   if [ -n "$_gstack_home_val" ]; then
     _gstack_default="$_gstack_home_val/.gstack"
@@ -106,6 +111,9 @@ fi
 # Plan root: where /context-save and /codex consult write plan files.
 if [ -n "${GSTACK_PLAN_DIR:-}" ]; then
   _plan_root="$GSTACK_PLAN_DIR"
+elif [ "$_gstack_sr_var" = pack_marker ]; then
+  # Pack mode keeps everything under the state root (docs/pack-mode.md).
+  _plan_root="$_state_root/plans"
 elif [ -n "${CLAUDE_PLANS_DIR:-}" ]; then
   _plan_root="$CLAUDE_PLANS_DIR"
 elif [ -n "${HOME:-}" ]; then
