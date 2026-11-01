@@ -250,6 +250,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# A host-managed pack render (docs/pack-mode.md) is installed by its host. A
+# plain ./setup there would write ~/.claude and ~/.gstack, so refuse it before
+# any write; only the --pack-* entry points run inside a render.
+if [ -z "${PACK_ROOT:-}${PACK_STATE_ROOT:-}${PACK_BROWSER:-}${PACK_BROWSER_CACHE:-}" ]; then
+  _pack_dir="$(cd "$(dirname "$0")" && pwd -P)"
+  if [ -f "$_pack_dir/.gstack-pack.json" ]; then
+    echo "setup: this is a host-managed pack render ($_pack_dir); the host installs it" >&2
+    exit 2
+  fi
+fi
+
 # Pack mode renders into the caller's roots and exits before any install step.
 if [ -n "${PACK_ROOT:-}${PACK_STATE_ROOT:-}" ]; then
   exec bash "$(cd "$(dirname "$0")" && pwd -P)/scripts/pack-render.sh" "${PACK_ROOT:-}" "${PACK_STATE_ROOT:-}"
