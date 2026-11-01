@@ -23,9 +23,9 @@ type Row = { name: string; env: Record<string, string>; win?: boolean };
 // the unset-HOME branches themselves are covered on POSIX hosts.
 const HOST_FILLS_HOME = process.platform === 'win32';
 
-function bashEval(row: Row, body: string): { out: string; home: string } {
+function bashEval(row: Row, body: string, twin: string = TWIN): { out: string; home: string } {
   const ostype = row.win ? 'msys' : 'linux-gnu';
-  const r = spawnSync(BASH, ['-c', `OSTYPE=${ostype}; printf '%s\\0' "\${HOME-}"; . "${TWIN}" && ${body}`], {
+  const r = spawnSync(BASH, ['-c', `OSTYPE=${ostype}; printf '%s\\0' "\${HOME-}"; . "${twin}" && ${body}`], {
     env: { USERPROFILE: '', ...row.env, PATH: '' },
     encoding: 'utf-8',
     timeout: 10_000,
@@ -85,6 +85,73 @@ describe('state root parity (bash twin vs lib/state-root.ts)', () => {
     expect(resolveStateRoot(base, 'linux')).toBe('/plug');
     expect(resolveStateRoot({ HOME: '/home/u' }, 'linux')).toBe('/home/u/.gstack');
     expect(resolveStateRoot({}, 'linux')).toBe('.gstack');
+  });
+});
+
+describe('pack marker (docs/pack-mode.md)', () => {
+  // A pack render holds <pack root>/.gstack-pack-state-root next to bin/ and
+  // lib/. The bash twin finds it from its own path, so the test sources a copy
+  // under a temp pack root; the TS twin takes the marker path as an argument.
+  let tmp: string, packRoot: string, twin: string, marker: string;
+  const S = '/state/pack';
+
+  beforeAll(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-pack-marker-'));
+    packRoot = path.join(tmp, 'render');
+    fs.mkdirSync(path.join(packRoot, 'bin'), { recursive: true });
+    for (const f of ['gstack-state-root.sh', 'gstack-paths']) {
+      fs.copyFileSync(path.join(ROOT, 'bin', f), path.join(packRoot, 'bin', f));
+    }
+    fs.chmodSync(path.join(packRoot, 'bin', 'gstack-paths'), 0o755);
+    twin = path.join(packRoot, 'bin', 'gstack-state-root.sh').replace(/\\/g, '/');
+    marker = path.join(packRoot, '.gstack-pack-state-root');
+  });
+  afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  const rows: Array<Row & { marker: string; want: string }> = [
+    { name: 'marker alone', env: { HOME: '/home/u' }, marker: `${S}\n`, want: S },
+    { name: 'marker value is trimmed', env: { HOME: '/home/u' }, marker: `  ${S}  \nignored second line\n`, want: S },
+    { name: 'GSTACK_HOME beats the marker', env: { HOME: '/home/u', GSTACK_HOME: B }, marker: `${S}\n`, want: B },
+    { name: 'GSTACK_STATE_DIR beats the marker', env: { HOME: '/home/u', GSTACK_STATE_DIR: C }, marker: `${S}\n`, want: C },
+    { name: 'marker beats gstack plugin data', env: { HOME: '/home/u', CLAUDE_PLUGIN_DATA: '/plug', CLAUDE_PLUGIN_ROOT: '/plugins/gstack' }, marker: `${S}\n`, want: S },
+    { name: 'relative marker is ignored', env: { HOME: '/home/u' }, marker: 'state/pack\n', want: '/home/u/.gstack' },
+    { name: 'empty marker is ignored', env: { HOME: '/home/u' }, marker: '', want: '/home/u/.gstack' },
+  ];
+
+  for (const row of rows) {
+    test(row.name, () => {
+      fs.writeFileSync(marker, row.marker);
+      const bash = bashEval(row, 'gstack_state_root; printf x', twin);
+      expect(bash.out.replace(/x$/, '')).toBe(row.want);
+      expect(resolveStateRoot(row.env, 'linux', marker)).toBe(row.want);
+    });
+  }
+
+  test('a marker that is not a regular file is ignored', () => {
+    fs.rmSync(marker, { force: true });
+    fs.mkdirSync(marker);
+    try {
+      expect(bashEval({ name: 'dir', env: { HOME: '/home/u' } }, 'gstack_state_root; printf x', twin).out).toBe('/home/u/.gstackx');
+      expect(resolveStateRoot({ HOME: '/home/u' }, 'linux', marker)).toBe('/home/u/.gstack');
+    } finally {
+      fs.rmSync(marker, { recursive: true, force: true });
+    }
+  });
+
+  test('the marker resolves from the twin path even after the caller changes directory', () => {
+    fs.writeFileSync(marker, `${S}\n`);
+    const out = bashEval({ name: 'cd', env: { HOME: '/home/u' } }, `cd / && gstack_state_root; printf x`, twin).out;
+    expect(out).toBe(`${S}x`);
+  });
+
+  test('gstack-paths puts the plan dir under the marker state root unless GSTACK_PLAN_DIR is set', () => {
+    fs.writeFileSync(marker, `${S}\n`);
+    const paths = path.join(packRoot, 'bin', 'gstack-paths');
+    const get = (env: Record<string, string>, name: string) =>
+      spawnSync(BASH, [paths, '--get', name], { env: { PATH: process.env.PATH ?? '', HOME: '/home/u', ...env }, encoding: 'utf-8', timeout: 10_000 }).stdout.replace(/\n$/, '');
+    expect(get({}, 'GSTACK_STATE_ROOT')).toBe(S);
+    expect(get({}, 'PLAN_ROOT')).toBe(`${S}/plans`);
+    expect(get({ GSTACK_PLAN_DIR: '/plans/own' }, 'PLAN_ROOT')).toBe('/plans/own');
   });
 });
 

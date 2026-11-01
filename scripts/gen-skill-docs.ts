@@ -197,7 +197,7 @@ function rewriteInstallRoot(content: string, hostConfig: HostConfig, installRoot
   const root = installRoot.replace(/\/+$/, '');
   const defaults = hostConfig.usesEnvVars
     ? [`$HOME/${hostConfig.globalRoot}`, `~/${hostConfig.globalRoot}`]
-    : ['$HOME/.claude/skills/gstack', '~/.claude/skills/gstack'];
+    : ['${HOME}/.claude/skills/gstack', '$HOME/.claude/skills/gstack', '~/.claude/skills/gstack'];
   return defaults.reduce((text, from) => text.split(from).join(root), content);
 }
 

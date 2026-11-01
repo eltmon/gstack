@@ -3,12 +3,14 @@
  * bin/gstack-state-root.sh; test/state-root-parity.test.ts keeps them equal).
  * Add a caller: `join(resolveStateRoot(), 'analytics')` instead of joining
  * homedir() with '.gstack'; read a config key with `readConfigKey('telemetry')`.
- * Chain: GSTACK_STATE_ROOT → GSTACK_HOME → GSTACK_STATE_DIR → CLAUDE_PLUGIN_DATA
- * (only when CLAUDE_PLUGIN_ROOT contains "gstack") → $HOME/.gstack → .gstack.
+ * Chain: GSTACK_STATE_ROOT → GSTACK_HOME → GSTACK_STATE_DIR → pack marker
+ * (docs/pack-mode.md) → CLAUDE_PLUGIN_DATA (only when CLAUDE_PLUGIN_ROOT
+ * contains "gstack") → $HOME/.gstack → .gstack.
  * Enforced by test/state-root-ratchet.test.ts. Replaces the hand-rolled chains
  * formerly in browse/src/config.ts and lib/cso/state.ts. Docs: docs/state-root.md.
  */
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 export type StateRootEnv = Record<string, string | undefined>;
 
@@ -18,11 +20,30 @@ function userHome(env: StateRootEnv, platform: NodeJS.Platform): string {
   return env.HOME || (platform === 'win32' ? env.USERPROFILE || '' : '');
 }
 
-/** The raw chain value. Pure: never prints, never touches the filesystem. */
-export function resolveStateRoot(env: StateRootEnv = process.env, platform: NodeJS.Platform = process.platform): string {
+/**
+ * Pack mode: setup --pack-root writes <pack root>/.gstack-pack-state-root, one
+ * line naming the state root, next to this file's lib/.
+ */
+export const PACK_MARKER = path.join(import.meta.dir, '..', '.gstack-pack-state-root');
+
+/** The marker's first line, trimmed, when the marker is a regular file naming an absolute path. */
+export function packMarkerRoot(marker: string = PACK_MARKER): string | null {
+  try {
+    if (!fs.statSync(marker).isFile()) return null;
+    const root = fs.readFileSync(marker, 'utf-8').split('\n')[0].trim();
+    return root.startsWith('/') ? root : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The raw chain value. Never prints; reads only the pack marker. */
+export function resolveStateRoot(env: StateRootEnv = process.env, platform: NodeJS.Platform = process.platform, marker: string = PACK_MARKER): string {
   for (const name of STATE_ROOT_VARS) {
     if (env[name]) return env[name] as string;
   }
+  const packed = packMarkerRoot(marker);
+  if (packed) return packed;
   if (env.CLAUDE_PLUGIN_DATA && (env.CLAUDE_PLUGIN_ROOT || '').toLowerCase().includes('gstack')) return env.CLAUDE_PLUGIN_DATA;
   const home = userHome(env, platform);
   return home ? `${home}/.gstack` : '.gstack';
