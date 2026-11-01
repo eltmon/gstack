@@ -9,6 +9,9 @@
  *   5. Print response to stdout (or stderr for errors)
  */
 
+// First import: exports a pack render's markers as env before any module
+// resolves the state root at load time (lib/pack-env.ts).
+import '../../lib/pack-env-apply';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn as nodeSpawn } from 'child_process';

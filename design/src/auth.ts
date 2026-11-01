@@ -1,8 +1,10 @@
 /**
  * Auth resolution for the design binary's image providers.
  *
- * OpenAI key: ~/.gstack/openai.json → { "api_key": "sk-..." }, then OPENAI_API_KEY.
- * Gemini key: ~/.gstack/gemini.json → { "api_key": "AIza..." }, then GEMINI_API_KEY.
+ * OpenAI key: <state root>/openai.json → { "api_key": "sk-..." }, then OPENAI_API_KEY.
+ * Gemini key: <state root>/gemini.json → { "api_key": "AIza..." }, then GEMINI_API_KEY.
+ * The state root is resolveStateRoot() (lib/state-root.ts): ~/.gstack by
+ * default, the pack's state root inside a pack render.
  *
  * Provider (resolveProvider), one fixed order: GSTACK_DESIGN_PROVIDER=openai|gemini
  * when set; else OpenAI when an OpenAI key resolves; else Gemini when a Gemini
@@ -18,6 +20,7 @@
 
 import fs from "fs";
 import path from "path";
+import { resolveStateRoot } from "../../lib/state-root";
 
 type ApiKeySource = "config" | "env";
 
@@ -46,7 +49,7 @@ export interface ApiKeyResolution {
 }
 
 function configPath(provider: ProviderName = "openai"): string {
-  return path.join(process.env.HOME || "~", ".gstack", PROVIDERS[provider].file);
+  return path.join(resolveStateRoot(), PROVIDERS[provider].file);
 }
 
 function readEnvValue(filePath: string, key: string): string | null {

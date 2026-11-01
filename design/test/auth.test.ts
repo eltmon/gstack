@@ -118,6 +118,21 @@ describe("resolveApiKeyInfo", () => {
 });
 
 describe("saveApiKey", () => {
+  test("keeps the key under the resolved state root (a pack render's GSTACK_STATE_ROOT), not $HOME/.gstack", () => {
+    const stateRoot = path.join(tmpDir, "state");
+    const original = process.env.GSTACK_STATE_ROOT;
+    process.env.GSTACK_STATE_ROOT = stateRoot;
+    try {
+      saveApiKey("sk-state-root");
+      expect(fs.existsSync(path.join(stateRoot, "openai.json"))).toBe(true);
+      expect(fs.existsSync(path.join(tmpHome, ".gstack"))).toBe(false);
+      expect(resolveApiKeyInfo()?.key).toBe("sk-state-root");
+    } finally {
+      if (original === undefined) delete process.env.GSTACK_STATE_ROOT;
+      else process.env.GSTACK_STATE_ROOT = original;
+    }
+  });
+
   test("stores the key file owner-only, even under a permissive umask", () => {
     // The OpenAI key file must never be group/other-readable. saveApiKey now
     // creates it with mode 0600 up front (matching session.ts / #859) instead
