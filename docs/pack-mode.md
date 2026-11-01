@@ -143,3 +143,10 @@ plain `./setup` (no `--pack-*` flag) inside a render exits 2 before any write:
 commands stubbed to fail, and checks that `HOME` is unchanged, nothing reached
 the network, the markers and config are right, no install-root token is left,
 and `R/bin/gstack-skill-start` reports `S` as its state root.
+
+`test/pack-browser.test.ts` runs the browser step against a real render with a
+stub `bun` and checks the command order, the env each command ran with, the
+markers, an unchanged `HOME`, the bun floor, and the cleanup after a failed
+Chromium download. `test/pack-browser-guards.test.ts` checks that a render
+never installs itself, and `test/pack-env.test.ts` that a compiled binary finds
+`S` and `C` from the markers alone.
