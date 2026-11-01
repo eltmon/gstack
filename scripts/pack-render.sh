@@ -33,8 +33,9 @@ tar -C "$SRC" --exclude=./.git --exclude=./test --exclude=./node_modules --exclu
 find "$R" -type l -delete
 
 # 2. Skill docs that name R instead of ~/.claude/skills/gstack. cwd R, so the
-# generator reads the copy and never the source tree.
-(cd "$R" && bun run "$R/scripts/gen-skill-docs.ts" --host claude --out-dir "$R" --install-root "$R" --link-root "$R")
+# generator reads the copy and never the source tree. The transpiler cache is
+# off: bun would otherwise write it under $HOME/.bun/install/cache.
+(cd "$R" && BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 bun run "$R/scripts/gen-skill-docs.ts" --host claude --out-dir "$R" --install-root "$R" --link-root "$R")
 grep -qF "$R/bin/gstack-skill-start --skill" "$R/test-audit/SKILL.md" \
   || fail 1 "render did not rewrite the install root"
 

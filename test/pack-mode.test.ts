@@ -3,9 +3,9 @@
  * renders every skill and its runtime into R, keeps all state in S, and
  * writes nothing else — no $HOME/.gstack, no $HOME/.claude, no network.
  *
- * Runs real bun under a temp HOME, with bun's own install and cache dirs
- * outside that HOME so bun's first-run cache is not mistaken for a gstack
- * write. curl/wget stubs and a git stub for network subcommands (fetch, pull,
+ * Runs real bun under an empty temp HOME, with bun's defaults (no BUN_INSTALL
+ * or XDG_CACHE_HOME redirect), and asserts HOME is still empty afterwards, so
+ * a bun cache write under $HOME/.bun fails the test. curl/wget stubs and a git stub for network subcommands (fetch, pull,
  * clone, ls-remote, push, remote update/show) log to net.log and fail, so any
  * network attempt shows up as that file.
  * Does not use makeFixture(): it seeds home/.gstack/config.yaml.
@@ -53,7 +53,7 @@ beforeAll(() => {
   work = path.join(tmp, 'work');
   netLog = path.join(tmp, 'net.log');
   const stubs = path.join(tmp, 'stubs');
-  for (const d of [home, work, stubs, path.join(tmp, 'bun', 'install'), path.join(tmp, 'bun', 'cache')]) fs.mkdirSync(d, { recursive: true });
+  for (const d of [home, work, stubs, path.join(tmp, 'tmpdir')]) fs.mkdirSync(d, { recursive: true });
   stub(stubs, 'curl', `echo "curl $*" >> "${netLog}"; exit 1`);
   stub(stubs, 'wget', `echo "wget $*" >> "${netLog}"; exit 1`);
   stub(stubs, 'git', [
@@ -72,9 +72,7 @@ beforeAll(() => {
   env = {
     HOME: home,
     PATH: `${stubs}:${BUN_DIR}:/usr/bin:/bin`,
-    BUN_INSTALL: path.join(tmp, 'bun', 'install'),
-    XDG_CACHE_HOME: path.join(tmp, 'bun', 'cache'),
-    TMPDIR: path.join(tmp, 'bun', 'cache'),
+    TMPDIR: path.join(tmp, 'tmpdir'),
   };
 });
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -83,12 +81,12 @@ describe('setup pack mode', () => {
   test('renders into R and S only, rewrites the install root, and runs the rendered runtime from S', () => {
     const R = path.join(tmp, 'pack', 'render');
     const S = path.join(tmp, 'pack', 'state');
-    const before = tree(home);
+    expect(fs.readdirSync(home)).toEqual([]);
 
     const r = run([SETUP, '--pack-root', R, '--pack-state-root', S]);
     expect(r.stderr).not.toContain('pack mode:');
     expect(r.status).toBe(0);
-    expect(tree(home)).toEqual(before);
+    expect(tree(home)).toEqual({});
     expect(fs.existsSync(path.join(home, '.gstack'))).toBe(false);
     expect(fs.existsSync(path.join(home, '.claude'))).toBe(false);
     expect(fs.existsSync(netLog)).toBe(false);
@@ -109,7 +107,7 @@ describe('setup pack mode', () => {
     expect(start.status).toBe(0);
     expect(start.stdout).toContain('SKILL_START_PROTO: 1');
     expect(start.stdout).toContain(`STATE_ROOT: ${S}`);
-    expect(tree(home)).toEqual(before);
+    expect(tree(home)).toEqual({});
     expect(fs.existsSync(netLog)).toBe(false);
   }, 180_000);
 
@@ -119,6 +117,7 @@ describe('setup pack mode', () => {
     fs.writeFileSync(path.join(S, 'config.yaml'), 'telemetry: community\n');
     const r = run([SETUP, '--pack-root', path.join(tmp, 'pack2', 'render'), '--pack-state-root', S]);
     expect(r.status).toBe(0);
+    expect(tree(home)).toEqual({});
     expect(fs.readFileSync(path.join(S, 'config.yaml'), 'utf-8')).toBe('telemetry: community\n');
   }, 180_000);
 
